@@ -1,18 +1,31 @@
 package com.graphhopper.resources;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import static com.graphhopper.resources.RouteResource.removeLegacyParameters;
+
+import java.util.List;
+import java.util.OptionalLong;
+
+import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
+
+import org.hibernate.validator.constraints.Range;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GraphHopperConfig;
-import com.graphhopper.coll.GHBitSet;
-import com.graphhopper.coll.GHTBitSet;
 import com.graphhopper.config.Profile;
 import com.graphhopper.http.GHPointParam;
 import com.graphhopper.http.ProfileResolver;
-import com.graphhopper.isochrone.algorithm.ContourBuilder;
-import com.graphhopper.isochrone.algorithm.ShortestPathTree;
-import com.graphhopper.isochrone.algorithm.Triangulator;
-import com.graphhopper.jackson.ResponsePathSerializer;
 import com.graphhopper.routing.ev.BooleanEncodedValue;
 import com.graphhopper.routing.ev.Subnetwork;
 import com.graphhopper.routing.querygraph.QueryGraph;
@@ -22,29 +35,10 @@ import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.BaseGraph;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.Snap;
-import com.graphhopper.util.*;
-import org.hibernate.validator.constraints.Range;
-import org.locationtech.jts.geom.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.inject.Inject;
-import javax.validation.constraints.NotNull;
-import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.OptionalInt;
-import java.util.OptionalLong;
-import java.util.function.ToDoubleFunction;
-
-import static com.graphhopper.resources.IsochroneResource.ResponseType.geojson;
-import static com.graphhopper.resources.RouteResource.removeLegacyParameters;
-import static com.graphhopper.routing.util.TraversalMode.EDGE_BASED;
-import static com.graphhopper.routing.util.TraversalMode.NODE_BASED;
+import com.graphhopper.suggestions.SuggestionsAlgorthm;
+import com.graphhopper.util.PMap;
+import com.graphhopper.util.Parameters;
+import com.graphhopper.util.StopWatch;
 
 @Path("suggestions")
 public class SuggestionsResource {
@@ -57,11 +51,10 @@ public class SuggestionsResource {
     private final String osmDate;
 
     @Inject
-    public SuggestionsResource(GraphHopperConfig config, GraphHopper graphHopper, Triangulator triangulator,
+    public SuggestionsResource(GraphHopperConfig config, GraphHopper graphHopper,
             ProfileResolver profileResolver) {
         this.config = config;
         this.graphHopper = graphHopper;
-        this.triangulator = triangulator;
         this.profileResolver = profileResolver;
         this.osmDate = graphHopper.getProperties().get("datareader.data.date");
     }
@@ -76,12 +69,12 @@ public class SuggestionsResource {
             @Context UriInfo uriInfo,
             @QueryParam("profile") String profileName,
             @QueryParam("point") @NotNull GHPointParam point,
-            @QueryParam("time_limit") @DefaultValue("600") OptionalLong timeLimitInSeconds,
-            @QueryParam("distance_limit") @DefaultValue("-1") OptionalLong distanceLimitInMeter,
+            @QueryParam("distance") @DefaultValue("5000") @Range(min = 100, max = 50000) long distanceInMeter,
             @QueryParam("type") @DefaultValue("json") ResponseType respType,
-            @QueryParam("tolerance") @DefaultValue("0") double toleranceInMeter,
+            @QueryParam("tolerance") @DefaultValue("0") long toleranceInMeter,
             @QueryParam("full_geometry") @DefaultValue("false") boolean fullGeometry) {
         StopWatch sw = new StopWatch().start();
+
         PMap hintsMap = new PMap();
         RouteResource.initHints(hintsMap, uriInfo.getQueryParameters());
         hintsMap.putObject(Parameters.CH.DISABLE, true);
@@ -106,26 +99,12 @@ public class SuggestionsResource {
             throw new IllegalArgumentException("Point not found:" + point);
         QueryGraph queryGraph = QueryGraph.create(graph, snap);
 
-        BreadthFirstSearch findAllCycles = new BreadthFirstSearch() {
+        // run through all edges and find all cycles with the given distance limit and
+        // tolerance with a breadth first search
+        SuggestionsAlgorthm algo = new SuggestionsAlgorthm(queryGraph, weighting, TraversalMode.EDGE_BASED,
+                distanceInMeter, toleranceInMeter);
 
-            @Override
-            protected GHBitSet createBitSet() {
-                return new GHTBitSet();
-            }
-
-            @Override
-            public boolean goFurther(int nodeId) {
-                return true;
-            }
-
-            @Override
-            public boolean checkAdjacent(EdgeIteratorState edge) {
-                return true;
-            }
-
-        };
-
-        findAllCycles.start(queryGraph.createEdgeExplorer(), snap.getClosestNode());
+        List<com.graphhopper.routing.Path> results = algo.calcPaths(snap.getClosestNode(), snap.getClosestNode());
 
         return Response.ok().header("X-GH-Took", "" + sw.getSeconds() * 1000).build();
     }
