@@ -207,7 +207,8 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
 
     @Override
     public void initialize(Bootstrap<?> bootstrap) {
-        // See #1440: avoids warning regarding com.fasterxml.jackson.module.afterburner.util.MyClassLoader
+        // See #1440: avoids warning regarding
+        // com.fasterxml.jackson.module.afterburner.util.MyClassLoader
         bootstrap.setObjectMapper(io.dropwizard.jackson.Jackson.newMinimalObjectMapper());
         // avoids warning regarding com.fasterxml.jackson.databind.util.ClassUtil
         bootstrap.getObjectMapper().registerModule(new Jdk8Module());
@@ -222,15 +223,19 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
     public void run(GraphHopperBundleConfiguration configuration, Environment environment) {
         for (Object k : System.getProperties().keySet()) {
             if (k instanceof String && ((String) k).startsWith("graphhopper."))
-                throw new IllegalArgumentException("You need to prefix system parameters with '-Ddw.graphhopper.' instead of '-Dgraphhopper.' see #1879 and #1897");
+                throw new IllegalArgumentException(
+                        "You need to prefix system parameters with '-Ddw.graphhopper.' instead of '-Dgraphhopper.' see #1879 and #1897");
         }
 
         // When Dropwizard's Hibernate Validation misvalidates a query parameter,
         // a JerseyViolationException is thrown.
-        // With this mapper, we use our custom format for that (backwards compatibility),
-        // and also coerce the media type of the response to JSON, so we can return JSON error
+        // With this mapper, we use our custom format for that (backwards
+        // compatibility),
+        // and also coerce the media type of the response to JSON, so we can return JSON
+        // error
         // messages from methods that normally have a different return type.
-        // That's questionable, but on the other hand, Dropwizard itself does the same thing,
+        // That's questionable, but on the other hand, Dropwizard itself does the same
+        // thing,
         // not here, but in a different place (the custom parameter parsers).
         // So for the moment we have to assume that both mechanisms
         // a) always return JSON error messages, and
@@ -238,11 +243,13 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         //
         // However, for places that throw IllegalArgumentException or MultiException,
         // we DO need to use the media type JSON annotation, because
-        // those are agnostic to the media type (could be GPX!), so the server needs to know
+        // those are agnostic to the media type (could be GPX!), so the server needs to
+        // know
         // that a JSON error response is supported. (See below.)
         environment.jersey().register(new GHJerseyViolationExceptionMapper());
 
-        // If the "?type=gpx" parameter is present, sets a corresponding media type header
+        // If the "?type=gpx" parameter is present, sets a corresponding media type
+        // header
         environment.jersey().register(new TypeGPXFilter());
 
         // Together, these two take care that MultiExceptions thrown from RouteResource
@@ -254,7 +261,8 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         // a single entry.
         environment.jersey().register(new IllegalArgumentExceptionMapper());
 
-        final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(configuration.getGraphHopperConfiguration());
+        final GraphHopperManaged graphHopperManaged = new GraphHopperManaged(
+                configuration.getGraphHopperConfiguration());
         environment.lifecycle().manage(graphHopperManaged);
         final GraphHopper graphHopper = graphHopperManaged.getGraphHopper();
         environment.jersey().register(new AbstractBinder() {
@@ -264,7 +272,8 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
                 bind(graphHopper).to(GraphHopper.class);
 
                 bind(new JTSTriangulator(graphHopper.getRouterConfig())).to(Triangulator.class);
-                bindFactory(MapMatchingRouterFactoryFactory.class).to(MapMatchingResource.MapMatchingRouterFactory.class);
+                bindFactory(MapMatchingRouterFactoryFactory.class)
+                        .to(MapMatchingResource.MapMatchingRouterFactory.class);
                 bindFactory(PathDetailsBuilderFactoryFactory.class).to(PathDetailsBuilderFactory.class);
                 bindFactory(ProfileResolverFactory.class).to(ProfileResolver.class);
                 bindFactory(GHRequestTransformerFactory.class).to(GHRequestTransformer.class);
@@ -283,8 +292,10 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         environment.jersey().register(IsochroneResource.class);
         environment.jersey().register(MapMatchingResource.class);
         if (configuration.getGraphHopperConfiguration().has("gtfs.file")) {
-            // These are pt-specific implementations of /route and /isochrone, but the same API.
-            // We serve them under different paths (/route-pt and /isochrone-pt), and forward
+            // These are pt-specific implementations of /route and /isochrone, but the same
+            // API.
+            // We serve them under different paths (/route-pt and /isochrone-pt), and
+            // forward
             // requests for ?vehicle=pt there.
             environment.jersey().register(new AbstractBinder() {
                 @Override
@@ -307,5 +318,6 @@ public class GraphHopperBundle implements ConfiguredBundle<GraphHopperBundleConf
         environment.healthChecks().register("graphhopper", new GraphHopperHealthCheck(graphHopper));
         environment.jersey().register(environment.healthChecks());
         environment.jersey().register(HealthCheckResource.class);
+        environment.jersey().register(SuggestionsResource.class);
     }
 }

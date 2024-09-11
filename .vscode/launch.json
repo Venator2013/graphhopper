@@ -1,0 +1,17 @@
+{
+    // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
+    // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
+    // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "GraphHopperApplication",
+            "request": "launch",
+            "mainClass": "com.graphhopper.application.GraphHopperApplication",
+            "projectName": "graphhopper-web",
+            "vmArgs": "-Ddw.graphhopper.datareader.file=oberpfalz-latest.osm.pbf",
+            "args": "server config-example.yml"
+        }
+    ]
+}

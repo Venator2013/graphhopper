@@ -1,5 +1,7 @@
 package com.graphhopper.suggestions;
 
+import java.util.List;
+
 import com.graphhopper.routing.AbstractRoutingAlgorithm;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.TraversalMode;
@@ -20,13 +22,20 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
     @Override
     public Path calcPath(int from, int to) {
-        // TODO Auto-generated method stub
+        // not needed for this algorithm
         return null;
     }
 
     @Override
+    public List<Path> calcPaths(int from, int to) {
+
+        // search for paths with the given distance and tolerance
+
+        return List.of();
+    }
+
+    @Override
     public int getVisitedNodes() {
-        // TODO Auto-generated method stub
         return 0;
     }
 
