@@ -49,7 +49,7 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         while (!stack.isEmpty()) {
             EdgeEntry current = stack.pop();
             visitedNodes++;
-            if (explored.contains(current.nodeId())) {
+            if (explored.contains(current.nodeId()) || current.distance() > distance + tolerance) {
                 continue;
             }
 
