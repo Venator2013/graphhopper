@@ -3,7 +3,12 @@ package com.graphhopper.suggestions;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.Queue;
+import java.util.LinkedList;
+import java.util.logging.Logger;
 
 import com.graphhopper.coll.GHBitSet;
 import com.graphhopper.coll.GHBitSetImpl;
@@ -12,6 +17,7 @@ import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.TraversalMode;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
+import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.EdgeIterator;
 
 public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
@@ -38,45 +44,60 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
     public List<Path> calcPaths(int from, int to) {
 
         // search for paths with the given distance and tolerance
-        GHBitSet explored = new GHBitSetImpl();
 
         List<Path> resultPaths = new ArrayList<>();
+        Deque<EdgeEntry> queue = new LinkedList<>();
+        queue.add(new EdgeEntry(from, -1, 0L, new ArrayList<>()));
 
-        Deque<EdgeEntry> stack = new ArrayDeque<>();
-
-        stack.add(new EdgeEntry(from, 0L, new ArrayList<>()));
-
-        while (!stack.isEmpty()) {
-            EdgeEntry current = stack.pop();
+        while (!queue.isEmpty()) {
+            EdgeEntry current = queue.pop();
             visitedNodes++;
-            if (explored.contains(current.nodeId()) || current.distance() > distance + tolerance) {
+
+            // skip if we have already reached the limit
+            if (current.distance() > distance + tolerance) {
                 continue;
             }
 
-            if (current.distance() > distance - tolerance && current.distance() < distance + tolerance) {
+            if (Math.abs(current.distance() - distance) < tolerance && current.nodeId() == to) {
                 // reconstruct path
-                Path path = new Path(graph);
-                path.setFromNode(from);
-                path.setEndNode(to);
-                path.setDistance(current.distance());
-                for (int edgeId : current.path()) {
-                    path.addEdge(edgeId);
-                }
+                Path path = constructPah(from, to, current);
                 resultPaths.add(path);
+                continue;
             }
-
-            explored.add(current.nodeId());
 
             EdgeIterator iter = edgeExplorer.setBaseNode(current.nodeId());
             while (iter.next()) {
+                // skip if the edge is already in the path
+                if (current.path.contains(iter.getEdge())) {
+                    continue;
+                }
+
                 int connectedId = iter.getAdjNode();
+
+                // do not go back in the next step
+                if (connectedId == current.lastNode()) {
+                    continue;
+                }
+
                 List<Integer> newPath = new ArrayList<>(current.path());
                 newPath.add(iter.getEdge());
-                stack.push(new EdgeEntry(connectedId, current.distance() + (long) iter.getDistance(), newPath));
+                queue.add(new EdgeEntry(connectedId, current.nodeId(), current.distance() + (long) iter.getDistance(),
+                        newPath));
             }
         }
 
         return resultPaths;
+    }
+
+    private Path constructPah(int from, int to, EdgeEntry current) {
+        Path path = new Path(graph);
+        path.setFromNode(from);
+        path.setEndNode(to);
+        path.setDistance(current.distance());
+        for (int edgeId : current.path()) {
+            path.addEdge(edgeId);
+        }
+        return path;
     }
 
     @Override
@@ -84,7 +105,7 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         return visitedNodes;
     }
 
-    private record EdgeEntry(int nodeId, long distance, List<Integer> path) {
+    private record EdgeEntry(int nodeId, int lastNode, long distance, List<Integer> path) {
     }
 
 }
