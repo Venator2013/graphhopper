@@ -46,8 +46,8 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         // search for paths with the given distance and tolerance
 
         List<Path> resultPaths = new ArrayList<>();
-        Deque<EdgeEntry> queue = new LinkedList<>();
-        queue.add(new EdgeEntry(from, -1, 0L, new ArrayList<>()));
+        Deque<EdgeEntry> queue = new ArrayDeque<>();
+        queue.push(EdgeEntry.startEntry(from));
 
         while (!queue.isEmpty()) {
             EdgeEntry current = queue.pop();
@@ -74,14 +74,9 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
                 int connectedId = iter.getAdjNode();
 
-                // do not go back in the next step
-                if (connectedId == current.lastNode()) {
-                    continue;
-                }
-
                 List<Integer> newPath = new ArrayList<>(current.path());
                 newPath.add(iter.getEdge());
-                queue.add(new EdgeEntry(connectedId, current.nodeId(), current.distance() + (long) iter.getDistance(),
+                queue.push(new EdgeEntry(connectedId, current.nodeId(), current.distance() + (long) iter.getDistance(),
                         newPath));
             }
         }
@@ -106,6 +101,10 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
     }
 
     private record EdgeEntry(int nodeId, int lastNode, long distance, List<Integer> path) {
+
+        static EdgeEntry startEntry(int nodeId) {
+            return new EdgeEntry(nodeId, -1, 0L, new ArrayList<>());
+        }
     }
 
 }
