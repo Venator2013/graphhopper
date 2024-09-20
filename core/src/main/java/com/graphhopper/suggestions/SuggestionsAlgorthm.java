@@ -19,6 +19,7 @@ import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.EdgeIterator;
+import com.graphhopper.util.GHUtility;
 
 public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
@@ -66,17 +67,22 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
             }
 
             EdgeIterator iter = edgeExplorer.setBaseNode(current.nodeId());
+
             while (iter.next()) {
                 // skip if the edge is already in the path
-                if (current.path.contains(iter.getEdge())) {
+                if (current.lastEdge() == iter.getEdge()) {
+                    continue;
+                }
+
+                if (current.path().contains(iter.getEdgeKey())) {
                     continue;
                 }
 
                 int connectedId = iter.getAdjNode();
 
                 List<Integer> newPath = new ArrayList<>(current.path());
-                newPath.add(iter.getEdge());
-                queue.push(new EdgeEntry(connectedId, current.nodeId(), current.distance() + (long) iter.getDistance(),
+                newPath.add(iter.getEdgeKey());
+                queue.push(new EdgeEntry(connectedId, iter.getEdge(), current.distance() + (long) iter.getDistance(),
                         newPath));
             }
         }
@@ -89,8 +95,8 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         path.setFromNode(from);
         path.setEndNode(to);
         path.setDistance(current.distance());
-        for (int edgeId : current.path()) {
-            path.addEdge(edgeId);
+        for (int edgeKeyId : current.path()) {
+            path.addEdge(GHUtility.getEdgeFromEdgeKey(edgeKeyId));
         }
         return path;
     }
@@ -100,7 +106,7 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         return visitedNodes;
     }
 
-    private record EdgeEntry(int nodeId, int lastNode, long distance, List<Integer> path) {
+    private record EdgeEntry(int nodeId, int lastEdge, long distance, List<Integer> path) {
 
         static EdgeEntry startEntry(int nodeId) {
             return new EdgeEntry(nodeId, -1, 0L, new ArrayList<>());
