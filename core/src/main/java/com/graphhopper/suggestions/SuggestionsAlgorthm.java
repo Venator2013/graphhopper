@@ -4,6 +4,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import com.graphhopper.routing.AbstractRoutingAlgorithm;
 import com.graphhopper.routing.Path;
@@ -51,6 +53,11 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
                 continue;
             }
 
+            // skip if we cannot reach the target node with the current distance
+            if (GHUtility.getDistance(current.nodeId, from, nodeAccess) > (distance + tolerance) / 2) {
+                continue;
+            }
+
             if (Math.abs(current.distance() - distance) < tolerance && current.nodeId() == to) {
                 // reconstruct path
                 Path path = constructPah(from, to, current);
@@ -66,7 +73,7 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
                     continue;
                 }
 
-                List<Integer> newPath = new ArrayList<>(current.path());
+                Set<Integer> newPath = new LinkedHashSet<>(current.path());
                 newPath.add(iter.getEdgeKey());
                 queue.push(
                         new EdgeEntry(iter.getAdjNode(), iter.getEdge(), current.distance() + (long) iter.getDistance(),
@@ -93,10 +100,10 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         return visitedNodes;
     }
 
-    private record EdgeEntry(int nodeId, int lastEdge, long distance, List<Integer> path) {
+    private record EdgeEntry(int nodeId, int lastEdge, long distance, Set<Integer> path) {
 
         static EdgeEntry startEntry(int nodeId) {
-            return new EdgeEntry(nodeId, -1, 0L, new ArrayList<>());
+            return new EdgeEntry(nodeId, -1, 0L, new LinkedHashSet<>());
         }
     }
 
