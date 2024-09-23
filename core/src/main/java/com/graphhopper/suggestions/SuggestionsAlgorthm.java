@@ -3,21 +3,13 @@ package com.graphhopper.suggestions;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.Queue;
-import java.util.LinkedList;
-import java.util.logging.Logger;
 
-import com.graphhopper.coll.GHBitSet;
-import com.graphhopper.coll.GHBitSetImpl;
 import com.graphhopper.routing.AbstractRoutingAlgorithm;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.TraversalMode;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
-import com.graphhopper.util.DistancePlaneProjection;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.GHUtility;
 
@@ -69,21 +61,16 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
             EdgeIterator iter = edgeExplorer.setBaseNode(current.nodeId());
 
             while (iter.next()) {
-                // skip if the edge is already in the path
-                if (current.lastEdge() == iter.getEdge()) {
+                // skip if the edge is already in the path or if the edge is the last edge
+                if (current.lastEdge() == iter.getEdge() || current.path().contains(iter.getEdgeKey())) {
                     continue;
                 }
-
-                if (current.path().contains(iter.getEdgeKey())) {
-                    continue;
-                }
-
-                int connectedId = iter.getAdjNode();
 
                 List<Integer> newPath = new ArrayList<>(current.path());
                 newPath.add(iter.getEdgeKey());
-                queue.push(new EdgeEntry(connectedId, iter.getEdge(), current.distance() + (long) iter.getDistance(),
-                        newPath));
+                queue.push(
+                        new EdgeEntry(iter.getAdjNode(), iter.getEdge(), current.distance() + (long) iter.getDistance(),
+                                newPath));
             }
         }
 
