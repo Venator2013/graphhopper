@@ -54,7 +54,7 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
             }
 
             // skip if we cannot reach the target node with the current distance
-            if (GHUtility.getDistance(current.nodeId, from, nodeAccess) > (distance + tolerance) / 2) {
+            if (GHUtility.getDistance(current.nodeId, from, nodeAccess) + current.distance() > distance + tolerance) {
                 continue;
             }
 
