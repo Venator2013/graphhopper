@@ -77,7 +77,7 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
                 newPath.add(iter.getEdgeKey());
                 queue.push(
                         new EdgeEntry(iter.getAdjNode(), iter.getEdge(), current.distance() + (long) iter.getDistance(),
-                                newPath));
+                                newPath, current.weighting() + weighting.calcEdgeWeight(iter, false)));
             }
         }
 
@@ -89,6 +89,8 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         path.setFromNode(from);
         path.setEndNode(to);
         path.setDistance(current.distance());
+        path.setWeight(current.weighting());
+
         for (int edgeKeyId : current.path()) {
             path.addEdge(GHUtility.getEdgeFromEdgeKey(edgeKeyId));
         }
@@ -100,10 +102,10 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
         return visitedNodes;
     }
 
-    private record EdgeEntry(int nodeId, int lastEdge, long distance, Set<Integer> path) {
+    private record EdgeEntry(int nodeId, int lastEdge, long distance, Set<Integer> path, double weighting) {
 
         static EdgeEntry startEntry(int nodeId) {
-            return new EdgeEntry(nodeId, -1, 0L, new LinkedHashSet<>());
+            return new EdgeEntry(nodeId, -1, 0L, new LinkedHashSet<>(), 0);
         }
     }
 
