@@ -19,14 +19,16 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
     private final long distance;
     private final long tolerance;
+    private final int limit;
 
     private int visitedNodes = 0;
 
     public SuggestionsAlgorthm(Graph graph, Weighting weighting, TraversalMode traversalMode, long distance,
-            long tolerance) {
+            long tolerance, int limit) {
         super(graph, weighting, traversalMode);
         this.distance = distance;
         this.tolerance = tolerance;
+        this.limit = limit;
     }
 
     @Override
@@ -37,8 +39,6 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
     @Override
     public List<Path> calcPaths(int from, int to) {
-
-        // search for paths with the given distance and tolerance
 
         List<Path> resultPaths = new ArrayList<>();
         Deque<EdgeEntry> queue = new ArrayDeque<>();
@@ -67,7 +67,7 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
             EdgeIterator iter = edgeExplorer.setBaseNode(current.nodeId());
 
-            while (iter.next()) {
+            while (iter.next() && resultPaths.size() < limit) {
                 // skip if the edge is already in the path or if the edge is the last edge
                 if (current.lastEdge() == iter.getEdge() || current.path().contains(iter.getEdgeKey())) {
                     continue;
