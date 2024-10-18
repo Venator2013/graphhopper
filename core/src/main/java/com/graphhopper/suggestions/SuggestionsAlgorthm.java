@@ -3,32 +3,40 @@ package com.graphhopper.suggestions;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.List;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 import com.graphhopper.routing.AbstractRoutingAlgorithm;
 import com.graphhopper.routing.Path;
+import com.graphhopper.routing.ev.BooleanEncodedValue;
+import com.graphhopper.routing.util.EncodingManager;
 import com.graphhopper.routing.util.TraversalMode;
 import com.graphhopper.routing.weighting.Weighting;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.GHUtility;
+import com.graphhopper.util.StopWatch;
 
 public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
     private final long distance;
     private final long tolerance;
     private final int limit;
+    private final int timeLimit;
+    private final EncodingManager encodingManager;
 
     private int visitedNodes = 0;
 
     public SuggestionsAlgorthm(Graph graph, Weighting weighting, TraversalMode traversalMode, long distance,
-            long tolerance, int limit) {
+            long tolerance, int limit, int timeLimit, EncodingManager encodingManager) {
         super(graph, weighting, traversalMode);
         this.distance = distance;
         this.tolerance = tolerance;
         this.limit = limit;
+        this.timeLimit = timeLimit;
+        this.encodingManager = encodingManager;
     }
 
     @Override
@@ -40,11 +48,16 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
     @Override
     public List<Path> calcPaths(int from, int to) {
 
-        List<Path> resultPaths = new ArrayList<>();
         Deque<EdgeEntry> queue = new ArrayDeque<>();
         queue.push(EdgeEntry.startEntry(from));
 
-        while (!queue.isEmpty()) {
+        PriorityQueue<EdgeEntry> resultQueue = new PriorityQueue<>(limit,
+                (e1, e2) -> Double.compare(e1.weighting(), e2.weighting()));
+
+        BooleanEncodedValue footAccess = encodingManager.getBooleanEncodedValue("foot_access");
+
+        StopWatch stopWatch = new StopWatch().start();
+        while (!queue.isEmpty() && stopWatch.getMillis() < timeLimit) {
             EdgeEntry current = queue.pop();
             visitedNodes++;
 
@@ -60,28 +73,40 @@ public class SuggestionsAlgorthm extends AbstractRoutingAlgorithm {
 
             if (Math.abs(current.distance() - distance) < tolerance && current.nodeId() == to) {
                 // reconstruct path
-                Path path = constructPah(from, to, current);
-                resultPaths.add(path);
+                resultQueue.add(current);
+                if (resultQueue.size() > limit) {
+                    resultQueue.poll();
+                }
                 continue;
             }
 
             EdgeIterator iter = edgeExplorer.setBaseNode(current.nodeId());
 
-            while (iter.next() && resultPaths.size() < limit) {
+            while (iter.next()) {
                 // skip if the edge is already in the path or if the edge is the last edge
                 if (current.lastEdge() == iter.getEdge() || current.path().contains(iter.getEdgeKey())) {
                     continue;
+                }
+
+                if (!iter.get(footAccess)) {
+                    continue;
+                }
+
+                double currentWeight = weighting.calcEdgeWeight(iter, false) + current.weighting();
+                if (Double.isInfinite(currentWeight)) {
+                    // continue;
                 }
 
                 Set<Integer> newPath = new LinkedHashSet<>(current.path());
                 newPath.add(iter.getEdgeKey());
                 queue.push(
                         new EdgeEntry(iter.getAdjNode(), iter.getEdge(), current.distance() + (long) iter.getDistance(),
-                                newPath, current.weighting() + weighting.calcEdgeWeight(iter, false)));
+                                newPath, currentWeight));
             }
         }
 
-        return resultPaths;
+        return resultQueue.stream()
+                .map(e -> constructPah(from, to, e)).toList();
     }
 
     private Path constructPah(int from, int to, EdgeEntry current) {

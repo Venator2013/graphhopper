@@ -2,10 +2,9 @@ package com.graphhopper.resources;
 
 import static com.graphhopper.resources.RouteResource.removeLegacyParameters;
 
-import java.util.List;
-import java.util.OptionalLong;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import javax.inject.Inject;
 import javax.validation.constraints.NotNull;
@@ -20,9 +19,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import org.hibernate.validator.constraints.Range;
-import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +41,6 @@ import com.graphhopper.storage.BaseGraph;
 import com.graphhopper.storage.index.LocationIndex;
 import com.graphhopper.storage.index.Snap;
 import com.graphhopper.suggestions.SuggestionsAlgorthm;
-import com.graphhopper.util.GHUtility;
 import com.graphhopper.util.JsonFeature;
 import com.graphhopper.util.PMap;
 import com.graphhopper.util.Parameters;
@@ -72,10 +68,6 @@ public class SuggestionsResource {
         this.osmDate = graphHopper.getProperties().get("datareader.data.date");
     }
 
-    public enum ResponseType {
-        json, geojson
-    }
-
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Response doGet(
@@ -83,10 +75,9 @@ public class SuggestionsResource {
             @QueryParam("profile") String profileName,
             @QueryParam("point") @NotNull GHPointParam point,
             @QueryParam("distance") @DefaultValue("5000") @Range(min = 100, max = 50000) long distanceInMeter,
-            @QueryParam("type") @DefaultValue("json") ResponseType respType,
-            @QueryParam("tolerance") @DefaultValue("0") long toleranceInMeter,
-            @QueryParam("full_geometry") @DefaultValue("false") boolean fullGeometry,
-            @QueryParam("limit") @DefaultValue("20") @Range(min = 1, max = 200) int limit) {
+            @QueryParam("tolerance") @DefaultValue("100") long toleranceInMeter,
+            @QueryParam("limit") @DefaultValue("20") @Range(min = 1, max = 20000) int limit,
+            @QueryParam("time_limit") @DefaultValue("1000") @Range(min = 1, max = 10000) int timeLimit) {
         StopWatch sw = new StopWatch().start();
 
         PMap hintsMap = new PMap();
@@ -116,7 +107,7 @@ public class SuggestionsResource {
         // run through all edges and find all cycles with the given distance limit and
         // tolerance with a breadth first search
         SuggestionsAlgorthm algo = new SuggestionsAlgorthm(queryGraph, weighting, TraversalMode.EDGE_BASED,
-                distanceInMeter, toleranceInMeter, limit);
+                distanceInMeter, toleranceInMeter, limit,timeLimit, graphHopper.getEncodingManager());
 
         List<com.graphhopper.routing.Path> results = algo.calcPaths(snap.getClosestNode(), snap.getClosestNode());
 
